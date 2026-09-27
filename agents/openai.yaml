@@ -1,0 +1,4 @@
+interface:
+  display_name: "gorm-plus 开发指南"
+  short_description: "按实际依赖版本使用 gorm-plus 生成器、查询、分页、事务和上下文插件"
+  default_prompt: "使用 $gorm-plus-skill，遵守当前项目约定，先核对依赖版本和已有 Repository，再完成本次开发或排查并验证结果。"
