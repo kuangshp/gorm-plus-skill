@@ -1,6 +1,33 @@
 # Repository 与查询
 
-数据库查询尽量封装在 Repository 中，业务代码通过注入的 Repository 调用，不直接编写 SQL 或 DAO/GORM 查询链。优先复用生成方法；不足时在项目规定的非生成 Repository 扩展文件中实现复杂筛选、联表、聚合或原生 SQL，并在 Repository 接口中暴露所需方法。
+数据库查询尽量封装在 Repository 中，业务代码通过注入的 Repository 调用，不直接编写 SQL 或 DAO/GORM 查询链。优先复用生成方法；不足时在对应的已有非生成 Repository 文件中新增方法，实现复杂筛选、联表、聚合或原生 SQL，并同步维护对应的已有 Repository 接口定义。
+
+## 业务层与 Repository 的职责边界（强制）
+
+- Repository 只负责数据访问：查询条件、联表、聚合、分页、持久化、事务连接绑定，以及模板已有的 Context、租户过滤和缓存失效机制；返回数据、行数或持久化错误，不决定业务是否允许执行。
+- Logic/Service 或项目已有业务层负责请求业务校验、业务权限和状态判断、计算、跨 Repository 调用顺序，以及业务错误码/文案与业务异常映射。数据访问所需的条件和参数可传给 Repository，但判断结果的业务含义留在业务层。
+- 例如“分类必须为末级”“已有多规格商品时不能新增必选属性”“某状态不能删除”等规则，必须由业务层通过 Repository 读取分类、存在性或数量后判断。Repository 可返回分类、是否存在、数量等数据，不能调用 `leafCategory` 等业务校验函数，或返回上述规则对应的 `domain.Invalid(...)` 等业务错误。
+- 禁止为了上述校验重写模板 `Create`、`Update`、`Delete`，也不能把规则藏到同文件私有函数、Repository 装饰器、模板或 `_gen.go` 中。保留模板 CRUD，由业务层完成判断后调用。
+- 事务不会改变职责边界：多表业务流程及校验在业务层编排，通过实际支持的 `WithTx`、事务版方法或等效机制，让查询和写入绑定同一事务；Repository 只执行数据操作。依赖原子性的校验不能简单移到事务外，必要的锁与数据库约束仍需保留，见[事务](transactions.md)。
+- 调整已有代码时，将业务规则迁回现有 Logic/Service；只将确实缺失的数据访问部分留在对应的已有 Repository 文件。不为本次分层额外创建空 Service 或第二套 CRUD，也不把 DAO/GORM 查询链迁到业务层。
+
+## Repository 文件与方法约束（强制）
+
+- 禁止在 `repository` 目录及其子目录中手动新建任何文件；不能以复杂查询、联表、事务、辅助方法或拆分职责为由另建文件，也不能用复制、重命名或脚本写文件绕过。新增 Repository 文件必须来自项目生成器的目标表生成流程。
+- 增加方法前，先定位对应表或领域已有的非生成 Repository 文件、实现类型和接口定义。方法实现追加到该文件中，方法声明补充到对应的已有接口定义中，沿用原有接收者和构造函数；业务层字段命名与初始化遵循[默认接口开发流程](interface-workflow.md)中的统一方式；不要另建 Repository 实现或接口文件。
+- 缺失的联表、聚合或事务内数据读写方法放入对应的已有 Repository 文件，复用已有类型和依赖；跨表业务事务由 Logic/Service 编排，不在 Repository 中增加业务流程方法，也不创建专用的 join、query、transaction、helper 或 extra 文件。
+- 若对应的非生成文件缺失，检查生成配置与模板，通过项目生成器生成；生成失败先修复原因，不能手写空壳、改写 `_gen.go` 或将查询移到业务层绕过。自动覆盖的接口定义如需扩展，从实际模板修正并重新生成，不直接手改生成文件。
+- 例如已有 `user_repository.go` 和 `user_repository_gen.go` 时，新增自定义查询方法应写入 `user_repository.go`，不得另建 `user_repository_query.go` 或 `user_repository_extra.go`；实际文件名与类型以项目生成结果为准。
+
+## 模板复用与扩展判定
+
+- 先读取当前表的非生成文件与 `_gen.go`，沿接口嵌入和结构体嵌入确认完整方法集。例如 `AttributeRepository` 嵌入 `iDefaultAttributeRepository`、实现结构体嵌入 `*defaultAttributeRepository` 时，默认方法已可用，不要把这些方法逐个再声明或实现一遍；名称与嵌入方式以实际模板为准。
+- 标准 CRUD、批量、分页和事务方法能满足需求时，业务层直接调用模板方法；筛选、指定字段、缓存等先检查已有 Wrapper 和选项，不因需要传入不同条件就新增方法。
+- HTTP 接口叫 `CreateAttribute`、`DeleteAttribute` 或 `RenameAttribute`，不代表 Repository 也必须新增同名方法。若分别只是创建一条记录、按 ID 删除或更新名称字段，应复用实际存在的 `Create`、`DeleteById`、`UpdateById`/`UpdateMapById` 等方法；调用参数和更新选项按真实签名填写。
+- 请求 DTO/Req 到实体、更新字段或查询参数的适配，优先放在项目已有 Mapper 或 Logic 中；不为让 Repository 直接接收某个 HTTP 请求类型，重复增加一套 CRUD 方法。不得通过在业务层直接写数据库查询来替代 Repository 复用。
+- 禁止仅改名、改参数包装或简单转调模板方法的重复封装；保留模板已生成的公开接口、默认接口、实现嵌入和构造函数，不另建一套接口或实现。
+- 需要扩展时，先明确“已检查哪些模板方法/选项，缺少什么数据访问能力”。仅对确实无法表达的联表、聚合或事务内数据读写，在对应的已有非生成文件中扩展；内部仍尽量调用已有方法。业务规则和多表业务流程放在 Logic/Service，不能以“专用业务操作”为由加入 Repository。
+- 模板的“可扩展/可覆盖”注释只是扩展能力说明，不是要求新增或覆盖。仅在确有持久化技术需求且不破坏原契约时才覆盖已有方法，禁止借此注入业务规则；不要为了统一命名或格式覆盖默认实现。
 
 ## 选择已有方法
 
@@ -35,7 +62,7 @@
 
 基线 `FindPageByWrapper` 接收 `(ctx, pageNumber, pageSize, wrapper回调, query选项...)`，返回 `(列表, total, err)`。回调类型为对应实体的 `gormplus.IGenWrapper[...]`，不要猜测实体 Do 接口名称。
 
-标准分页优先走生成 Repository。特殊联表先检查生成产物是否已有 `FindXxxJoinPage` 等辅助方法；确实不足再在当前表的非生成 Repository 中扩展。
+标准分页优先走生成 Repository。特殊联表先检查生成产物是否已有 `FindXxxJoinPage` 等辅助方法；确实不足再在当前表对应的已有非生成 Repository 文件中增加方法，不能新建分页或联表文件。
 
 分页查询严格使用 `ScanByPage` 或 `FindByPage`：实体列表通常使用 `FindByPage`，自定义字段投影或联表结果通常使用 `ScanByPage`，按实际查询对象的方法签名调用。不用 `Count` 加 `Offset`/`Limit`/`Find`/`Scan` 拼出另一套分页逻辑。
 
@@ -47,7 +74,7 @@ offset, limit := gormplus.DbPage(req.PageNumber, req.PageSize)
 
 遇到 `int((req.PageNumber-1)*req.PageSize), int(req.PageSize)` 或其他手算 offset/limit 的写法时替换为上述调用。基线 `DbPage` 将页码 0 变为 1，将非正 pageSize 变为 10，大于 500 变为 500；它没有完整拒绝负页码和溢出输入，仍需按接口契约验证输入。
 
-基线生成模板的普通 `FindPage`/`FindPageByWrapper` 直接计算 offset/limit，并未调用 `DbPage`。使用这些 Repository 方法前核对内部实现；不符合本规则时修正实际生成模板并重新生成，或在非生成 Repository 扩展方法中实现合规分页。不要直接修改 `_gen.go` 后留下无法复现的产物，也不能把 Repository 的方法名当作内部已经合规的证据。
+基线生成模板的普通 `FindPage`/`FindPageByWrapper` 直接计算 offset/limit，并未调用 `DbPage`。使用这些 Repository 方法前核对内部实现；不符合本规则时修正实际生成模板并重新生成，或在对应的已有非生成 Repository 文件中新增方法实现合规分页。不要直接修改 `_gen.go` 后留下无法复现的产物，也不能把 Repository 的方法名当作内部已经合规的证据。
 
 ## DAO 完整名称
 

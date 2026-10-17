@@ -1,4 +1,4 @@
 interface:
   display_name: "gorm-plus 开发指南"
   short_description: "gorm-plus 接口默认先写日期 SQL、同步数据库、生成代码，再注入 Repository"
-  default_prompt: "使用 $gorm-plus-skill，先核对实际依赖和项目配置。开发业务接口时默认准备根目录 generator.go，先创建 sql/YYYYMMDD描述.sql（描述按表及操作确定，如创建用户表、更新用户表），使用项目配置同步数据库，再运行生成器，最后通过依赖注入使用 Repository；审查和排查按任务范围验证。"
+  default_prompt: "使用 $gorm-plus-skill，先核对实际依赖和项目配置。开发业务接口时默认准备根目录 generator.go，先创建 sql/YYYYMMDD描述.sql（描述按表及操作确定，如创建用户表、更新用户表），使用项目配置同步数据库，再运行生成器，最后在 Gin/go-zero 业务结构体中以完整 Repository 接口字段名、完整构造函数名初始化并调用；单库支持时可省略连接参数，多库参数由用户填写；Repository 只做数据访问，业务校验与跨 Repository 事务流程放在 Logic/Service，禁止为业务规则覆盖模板 CRUD；审查和排查按任务范围验证。"

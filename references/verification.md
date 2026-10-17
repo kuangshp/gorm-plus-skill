@@ -37,6 +37,19 @@ https://github.com/kuangshp/gorm-plus/blob/8735474c4ff11b1c061d1e8373de7a3b49755
 | 已有表增加只读接口，无字段变化 | 仍先创建日期 SQL，执行结构核对，不重复建表，再运行目标表生成并注入 Repository |
 | SQL 同步失败或配置缺失 | 保留入口与 SQL，定位阻碍，不连接硬编码示例库，不手写生成产物，不宣称流程完成 |
 | SQL 工具与生成器选择不同配置环境 | 执行前统一目标配置，核对同步和生成的数据库一致 |
+| 已有 Repository 需要复杂查询或事务内数据读写 | 先复用模板能力，仅缺失的纯数据操作在对应的已有非生成文件中新增方法；业务判断和跨 Repository 事务编排在 Logic/Service，不新建 Repository 文件或修改 `_gen.go` |
+| 模板已提供 CRUD，HTTP 接口叫 CreateAttribute、DeleteAttribute、RenameAttribute | 核对并直接使用已有创建、按 ID 删除和字段更新方法，不为对齐 HTTP 名称另定义一套 Repository 方法 |
+| AttributeRepository 已嵌入默认接口，实现已嵌入默认 Repository | 识别继承的方法集，保留嵌入及构造函数，不重新声明默认方法或创建第二套实现 |
+| 只为接收 Req 而新增一行转调 Create 的方法 | 将参数适配留在现有 Mapper/Logic，直接调用模板方法；确需新增数据访问操作时说明实际能力缺口 |
+| query/model 缺少新表实体，或实体缺少字段 | 从日期 SQL/真实表结构与生成配置定位并重生成，不手写实体、不手改现有文件 |
+| 需要给生成 Model 加标签、方法或 extra.go | 不直接编辑或新建文件；标签等生成需求调整配置/模板，业务方法放业务层，不在 Model 目录建扩展文件 |
+| ModelPkgPath 指向其他目录，或文件没有 .gen.go 后缀 | 按真实 Model 输出目录应用相同禁写规则，不以路径名称或文件后缀绕过 |
+| 对应的非生成 Repository 文件缺失 | 修复配置或模板并运行目标表生成；生成失败时不手写空壳或另建文件绕过 |
+| go-zero 新增 ListOrdersLogic | 声明 purchaseOrderRepository repository.PurchaseOrderRepository，在 NewListOrdersLogic 的结构体字面量中用完整构造函数初始化；保留上下文、日志、请求与响应字段，不改成从 ServiceContext 取 Repository |
+| Gin 控制器或 Logic 使用 Repository | 使用相同的完整接口字段和构造函数内初始化方式，保持 Gin 控制器接口与目录布局，不引入 go-zero 专有上下文类型 |
+| Repository 字段写为 repo、poRepo 或 purchaseOrderRepo | 改为 purchaseOrderRepository，调用直接使用完整字段，不另设局部或包别名 |
+| 单数据库构造 Repository | 实际签名支持默认连接时允许无参，也允许显式传连接；不编造构造函数签名 |
+| 多数据库尚未填写 Repository 连接参数 | 保留清晰 TODO，由用户填写，不猜选库、不填 nil、不擅自添加回退逻辑；未完成编译验证则如实说明 |
 | 给列表增加名称包含筛选 | 使用包含匹配，空值处理符合接口约定 |
 | 时间范围只提供起点 | 使用 BetweenIfNotZero 前校验成对输入，不静默丢失范围筛选 |
 | 查询金额从 0 到 100 | 不把合法的 0 当作未提供导致漏筛选 |
@@ -44,7 +57,10 @@ https://github.com/kuangshp/gorm-plus/blob/8735474c4ff11b1c061d1e8373de7a3b49755
 | 发现手算 offset/limit | 改为 offset, limit := gormplus.DbPage(req.PageNumber, req.PageSize)，生成代码从模板修正 |
 | 联表查询使用 order/supplier 局部实体别名 | 改为完整 dao 实体和字段名称，保留必要 SQL 输出列别名 |
 | Req 时间字段为 int64 秒级时间戳 | 改为 string，更新源契约和生成 Types，dateTime 校验对合法、非法及可选空值生效 |
-| 主表写入后明细失败 | 主表回滚，没有调用事务外写入方法 |
+| Repository 重写 Create 校验末级分类、必选属性与存量商品限制 | 将查询后的业务判断、业务错误和流程迁到 Logic/Service；保留模板 Create，Repository 只提供所需数据 |
+| 将业务校验提取成 Repository 私有函数或塞入模板 | 仍判定为越层，迁到已有业务层，不能通过辅助函数或模板隐藏业务规则 |
+| 业务校验与多表写入需要原子性 | Logic/Service 在同一事务中通过事务绑定的 Repository 读取、判断、写入；不将校验移到事务外，不在业务层写 DAO/GORM 查询链 |
+| 主表写入后明细失败 | Logic/Service 编排事务并返回错误，主表回滚，没有调用事务外写入方法 |
 | 新字段需要更新已有 API | 识别“已有文件跳过”，从生成输入/模板及项目策略处理 |
 | 模板没有所需方法 | 核对版本、已有替代能力，不编造方法或擅自升级 |
 | 两个租户同样筛选且启用缓存 | 核对缓存键的租户与权限维度，而不只检查 SQL |
