@@ -35,6 +35,7 @@ https://github.com/kuangshp/gorm-plus/blob/8735474c4ff11b1c061d1e8373de7a3b49755
 | --- | --- |
 | gorm-plus 项目新增订单接口，尚无生成入口 | 先准备根目录 generator.go，连接取自项目配置；创建日期 SQL，同步并核对后生成，最后注入 Repository |
 | 已有表增加只读接口，无字段变化 | 仍先创建日期 SQL，执行结构核对，不重复建表，再运行目标表生成并注入 Repository |
+| 只写建表 SQL、数据库里尚无目标表就请求生成 | 先执行 SQL 创建真实表并核对结构，成功后运行生成器生成 Model/DAO/Repository；不得提前生成或手写替代 |
 | SQL 同步失败或配置缺失 | 保留入口与 SQL，定位阻碍，不连接硬编码示例库，不手写生成产物，不宣称流程完成 |
 | SQL 工具与生成器选择不同配置环境 | 执行前统一目标配置，核对同步和生成的数据库一致 |
 | 已有 Repository 需要复杂查询或事务内数据读写 | 先复用模板能力，仅缺失的纯数据操作在对应的已有非生成文件中新增方法；业务判断和跨 Repository 事务编排在 Logic/Service，不新建 Repository 文件或修改 `_gen.go` |
