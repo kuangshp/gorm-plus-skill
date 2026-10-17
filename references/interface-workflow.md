@@ -68,16 +68,16 @@ err := generator.Generate(&generator.Config{
 
 ```go
 type ListOrdersLogic struct {
-    logx.Logger
-    ctx     context.Context
-    svcCtx  *svc.ServiceContext
-    Request *http.Request
-    W       http.ResponseWriter
+    logx.Logger // 当前请求的上下文日志记录器。
+    ctx     context.Context // 当前请求上下文，保留取消信号与身份信息。
+    svcCtx  *svc.ServiceContext // 服务共享配置及已初始化资源。
+    Request *http.Request // 当前 HTTP 请求及请求元数据。
+    W       http.ResponseWriter // 当前 HTTP 响应输出。
 
-    purchaseOrderRepository repository.PurchaseOrderRepository
+    purchaseOrderRepository repository.PurchaseOrderRepository // 采购订单数据访问接口，复用生成方法。
 }
 
-func NewListOrdersLogic(ctx context.Context, svcCtx *svc.ServiceContext, request *http.Request, w http.ResponseWriter) *ListOrdersLogic {
+func NewListOrdersLogic(ctx context.Context, svcCtx *svc.ServiceContext, request *http.Request, w http.ResponseWriter) *ListOrdersLogic { // 创建订单列表逻辑并初始化日志、请求上下文及订单仓储。
     return &ListOrdersLogic{
         Logger:  logx.WithContext(ctx),
         ctx:     ctx,

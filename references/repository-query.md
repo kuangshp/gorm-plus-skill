@@ -113,7 +113,7 @@ entityDo := query.
 
 ```text
 PageSysAccessGrantReq {
-    PageBaseReq
+    PageBaseReq // 通用分页请求参数。
     GrantObject string `json:"grantObject,optional"` // 授权对象，精准IP地址
     StartTime string `json:"startTime,optional" validate:"omitempty,dateTime"` // 操作开始时间，格式遵循项目 dateTime 校验器
     EndTime string `json:"endTime,optional" validate:"omitempty,dateTime"` // 操作结束时间，格式遵循项目 dateTime 校验器

@@ -23,6 +23,7 @@ description: 在使用 github.com/kuangshp/gorm-plus 的 Go 项目中，默认�
 | 单条/列表/分页、可选筛选、联表、缓存参数 | [Repository 与查询](references/repository-query.md) |
 | 多表写入、回滚、事务内读取 | [事务](references/transactions.md) |
 | 租户条件、操作人字段、Context 丢失 | [插件与上下文](references/plugins-context.md) |
+| 字段与方法备注、生成注释缺失 | [字段与方法备注](references/code-comments.md) |
 | 维护本 Skill、复核版本或验证行为 | [来源与验证场景](references/verification.md) |
 
 ## 执行原则
@@ -31,6 +32,7 @@ description: 在使用 github.com/kuangshp/gorm-plus 的 Go 项目中，默认�
 - **先建表再生成基础代码（强制）**：新表必须先执行建表 SQL，已有表先完成必要结构变更并核对真实结构，成功后才可运行生成器生成 Model、DAO、Repository 等基础代码，最后实现业务。允许提前准备 `generator.go` 和配置，不允许提前执行生成。写好 SQL 不等于已建表，数据库不可用或同步/核对失败时不得跳过，也不能手写基础代码替代。
 - 已有根目录生成入口先复用和调整，不重复创建；数据库连接必须来自项目配置，不硬编码连接信息或回退到示例数据库。接口开发即使使用已有表，也要先留下 SQL 文件并核对数据库状态；无结构变化时不要重复执行建表或破坏性 DDL。
 
+- **字段与方法备注（强制）**：新增或修改的结构体字段（含嵌入字段、DTO/VO、配置及依赖字段）必须在声明右侧用 `//` 写清含义；接口方法签名右侧、函数/构造函数/方法定义行右侧必须说明用途，定义使用 `func ... { // 方法作用`。多行签名在最后一行说明，不把备注只留在调用处；已有 GoDoc 保留并完善。生成字段和方法的备注通过 SQL/Schema 注释、配置或实际模板补齐后重生成，禁止手改生成文件或为加备注新建 Model/Repository 文件。具体格式见[字段与方法备注](references/code-comments.md)。
 - **Model 目录由生成器独占（强制）**：`query/model` 及其子目录中的所有内容禁止手写、手动修改或手动新建文件；该规则同样适用于项目通过 `ModelPkgPath` 等配置指定的实际 Model 输出目录，不仅限于 `.gen.go` 后缀。新增实体、字段、类型、标签、注释及映射调整，必须从 SQL/表结构、生成配置或实际模板修正后运行项目生成器产生，禁止复制实体、追加方法、另建扩展文件或用脚本直接写入来绕过。生成失败时修复原因，不能手写补齐。详见[生成器](references/generator.md)。
 - **Repository 文件约束（强制）**：禁止在 `repository` 目录及其子目录中手动新建文件，也不能通过复制、拆分或另建扩展文件承载新增功能。Repository 新文件只能由项目生成器按目标表生成。新增且无法由模板满足的数据访问能力只能在对应表或领域已有的非生成 Repository 文件中增加方法，并同步维护对应的已有接口定义；禁止将自定义方法写入 `_gen.go`。对应文件缺失时，先修复配置或模板并运行生成器，不能手写补齐。具体落点见 [Repository 与查询](references/repository-query.md)。
 - **Repository 使用方式（Gin 与 go-zero 统一）**：业务结构体声明完整名称的接口字段，如 `purchaseOrderRepository repository.PurchaseOrderRepository`，在该结构体的 `NewXxx(...)` 构造函数返回值中直接用 `repository.NewPurchaseOrderRepository(...)` 初始化；调用使用 `l.purchaseOrderRepository` 等完整字段名，禁止缩写为 `repo`、`poRepo`、`purchaseOrderRepo` 或再定义局部别名。不要改成统一在 `ServiceContext`/启动容器中创建 Repository 后转取。单数据库且实际构造函数支持默认连接时，可写 `repository.NewPurchaseOrderRepository()`，不强制传 `svcCtx.DB`；保留显式传参也允许。多数据库的连接参数由用户自行填写，不擅自选择数据库。完整示例与参数规则见 [默认接口开发流程](references/interface-workflow.md)。
@@ -50,6 +52,7 @@ description: 在使用 github.com/kuangshp/gorm-plus 的 Go 项目中，默认�
 
 ## 完成检查
 
+- 本次涉及的字段声明、接口方法及函数/方法定义右侧均有准确备注；生成产物的备注来自可复现的输入或模板，未手改输出。
 - 接口开发具备根目录生成入口、日期 SQL 文件、配置来源、数据库同步/结构核对结果、目标表生成结果及 Repository 注入；受环境阻碍的步骤明确标为未完成，不能跳过后宣称完成。
 - 分页使用 `DbPage` 与 `ScanByPage`/`FindByPage`，范围使用 `BetweenIfNotZero`，DAO 无局部实体别名，请求时间参数为字符串且 `dateTime` 校验实际生效。
 - Model 输出目录无手写、手动修改或手动新增文件；新增及变更均可追溯到本次生成输入、配置/模板与实际生成结果，未以其他文件后缀或扩展文件绕过。
