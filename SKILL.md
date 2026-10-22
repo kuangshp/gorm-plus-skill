@@ -36,6 +36,7 @@ description: 在使用 github.com/kuangshp/gorm-plus 的 Go 项目中，默认�
 - **已依赖 go-utils 时优先复用（强制）**：如果目标项目已依赖 `github.com/kuangshp/go-utils`，处理切片、Map、映射、筛选、分组、去重、集合运算、类型转换、字符串或时间等数据时，必须先检查项目实际版本的现有方法；满足需求就直接使用，禁止重复定义等价工具方法或改用手写循环。只有核对后确认现有方法及其合理组合无法满足具体需求，才新增方法或使用循环，并说明所查能力及不满足的原因。版本与源码按 `go.mod`、`go.work`、`replace`、vendor 及实际导入确认，不猜方法名/签名；不因本约束擅自新增或升级依赖。
 - **字段与方法备注（强制）**：新增或修改的结构体字段（含嵌入字段、DTO/VO、配置及依赖字段）必须在声明右侧用 `//` 写清含义；接口方法签名右侧、函数/构造函数/方法定义行右侧必须说明用途，定义使用 `func ... { // 方法作用`。多行签名在最后一行说明，不把备注只留在调用处；已有 GoDoc 保留并完善。生成字段和方法的备注通过 SQL/Schema 注释、配置或实际模板补齐后重生成，禁止手改生成文件或为加备注新建 Model/Repository 文件。具体格式见[字段与方法备注](references/code-comments.md)。
 - **Model 目录由生成器独占（强制）**：`query/model` 及其子目录中的所有内容禁止手写、手动修改或手动新建文件；该规则同样适用于项目通过 `ModelPkgPath` 等配置指定的实际 Model 输出目录，不仅限于 `.gen.go` 后缀。新增实体、字段、类型、标签、注释及映射调整，必须从 SQL/表结构、生成配置或实际模板修正后运行项目生成器产生，禁止复制实体、追加方法、另建扩展文件或用脚本直接写入来绕过。生成失败时修复原因，不能手写补齐。详见[生成器](references/generator.md)。
+- **DAO 目录由生成器独占（强制）**：`query/dao` 及通过 `OutPath` 等实际生成配置指定的 DAO 输出目录（含子目录）禁止手写、手动新建或手改文件，不限文件后缀。DAO 实体查询文件、接口及 `gen.go` 注册代码均通过项目生成器产生和更新；禁止复制、拆分、另建扩展文件或脚本拼接替代生成。文件缺失或生成失败时修复输入、配置或模板并重新生成，不能手写补齐。此范围按实际生成输出定位，不把仅同名的连接初始化目录误判为生成 DAO 目录。
 - **Repository 文件约束（强制）**：禁止在 `repository` 目录及其子目录中手动新建文件，也不能通过复制、拆分或另建扩展文件承载新增功能。Repository 新文件只能由项目生成器按目标表生成。新增且无法由模板满足的数据访问能力只能在对应表或领域已有的非生成 Repository 文件中增加方法，并同步维护对应的已有接口定义；禁止将自定义方法写入 `_gen.go`。对应文件缺失时，先修复配置或模板并运行生成器，不能手写补齐。具体落点见 [Repository 与查询](references/repository-query.md)。
 - **Repository 使用方式（Gin 与 go-zero 统一）**：业务结构体声明完整名称的接口字段，如 `purchaseOrderRepository repository.PurchaseOrderRepository`，在该结构体的 `NewXxx(...)` 构造函数返回值中直接用 `repository.NewPurchaseOrderRepository(...)` 初始化；调用使用 `l.purchaseOrderRepository` 等完整字段名，禁止缩写为 `repo`、`poRepo`、`purchaseOrderRepo` 或再定义局部别名。不要改成统一在 `ServiceContext`/启动容器中创建 Repository 后转取。单数据库且实际构造函数支持默认连接时，可写 `repository.NewPurchaseOrderRepository()`，不强制传 `svcCtx.DB`；保留显式传参也允许。多数据库的连接参数由用户自行填写，不擅自选择数据库。完整示例与参数规则见 [默认接口开发流程](references/interface-workflow.md)。
 - **模板能力优先复用（强制）**：先检查对应 `_gen.go`、默认 Repository 接口及其嵌入提供的实际能力。创建、删除、更新、详情、列表、分页、批量操作及事务版本已有可用方法时直接调用，禁止仅为接口命名、接收 Req/DTO 或转调一行生成方法，再定义一套 `CreateXxx`、`DeleteXxx`、`RenameXxx` 等等价方法。保留模板已有的接口嵌入、实现嵌入与构造函数，不重复定义默认接口、实现结构体或 CRUD。只有明确核对已有方法、Wrapper 和选项仍无法表达所需数据访问行为时，才在对应的已有非生成文件中新增方法，并说明缺口；详细判定见 [Repository 与查询](references/repository-query.md)。
@@ -70,6 +71,7 @@ description: 在使用 github.com/kuangshp/gorm-plus 的 Go 项目中，默认�
 - go-zero 的 `.api` 优先来自生成产物复制后的裁剪，记录源与目标路径；确需手写时说明生成能力或环境限制，未伪造生成来源。聚合入口、API 校验及下游生成均已检查。
 - 分页使用 `DbPage` 与 `ScanByPage`/`FindByPage`，范围使用 `BetweenIfNotZero`，DAO 无局部实体别名，请求时间参数为字符串且 `dateTime` 校验实际生效。
 - Model 输出目录无手写、手动修改或手动新增文件；新增及变更均可追溯到本次生成输入、配置/模板与实际生成结果，未以其他文件后缀或扩展文件绕过。
+- DAO 输出目录无手写、手改或手动新增文件，查询接口和注册代码均来自项目生成器；不能以无生成标记、扩展文件或脚本写入为由绕过。
 - Repository 无手动新增文件；所有新增文件均可追溯到本次目标表的生成结果。自定义方法位于对应的已有非生成文件，接口定义同步更新，未手改 `_gen.go`。
 - Gin 与 go-zero 的 Repository 均使用完整接口字段名，在业务对象的构造函数中直接初始化；无 Repository 缩写或局部别名。单库省略连接参数时已核对真实签名及默认连接，多库参数未代用户猜填。
 - 新增 Repository 方法均有模板方法、Wrapper 和选项无法满足的具体理由；没有改名重复 CRUD、仅转调的包装方法或重复的默认接口/实现，模板嵌入结构得到保留。
